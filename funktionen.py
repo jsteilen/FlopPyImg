@@ -61,12 +61,13 @@ def volumeMetadata(basicPath, name, media, label, description, remarks):
 	# Attribute finden und in liste speichern
 	attributeList = []
 	for element in vol:
-		print(element.attributes.keys())
 		for elem in element.attributes.values():
-			print(elem.firstChild.data)
 			attributeList.append(elem.firstChild.data)
 	newAttribute = len(attributeList) + 1
 	print(newAttribute)
+	
+	count = dom1.getElementsByTagName('count')
+	count[0].firstChild.nodeValue = str(newAttribute)
 	
 	def checkWrittenFile(file, path):
 		fileNames = 'disk' + str(len(attributeList) + 1) + file
@@ -133,17 +134,19 @@ def volumeMetadata(basicPath, name, media, label, description, remarks):
 	print(dom1.toxml())
 
 	# count hochzaehlen
-	volumeIdPosition = dom1.getElementsByTagName('count')
-	volumeId = str(int(volumeIdPosition[0].firstChild.nodeValue) + 1)
-	volumeIdTag = '<count>' + volumeId + '</count>'
-		
+	#volumeIdPosition = dom1.getElementsByTagName('count')
+	#volumeId = str(int(volumeIdPosition[0].firstChild.nodeValue) + 1)
+	#volumeIdTag = '<count>' + volumeId + '</count>'
+#	volumeIdTag = '<count>' + str(newAttribute) + '</count>'
+#	print('volumeIdTag: ', volumeIdTag)
 	data2 = dom1.toxml()
-	data3 = re.sub("<count>(.)</count>", volumeIdTag,data2)
-	
+#	data3 = re.sub("<count>(.)</count>", volumeIdTag,data2)
+#	print('regex done?')
 	path = basicPath + os.sep + 'info.xml'
 	f = open(path, 'w')
-	f.write(data3)
+	f.write(data2)
 	f.close()
+
 
 ## md5 checksumme
 def checkSum(imgPath):

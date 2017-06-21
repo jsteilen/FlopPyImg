@@ -8,6 +8,7 @@ import os.path
 import shutil
 import time
 import platform
+import configparser
 import xml.dom.minidom
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -48,9 +49,9 @@ class Ui_MainWindow(object):
         self.labelPackageId = QtWidgets.QLabel(self.Package)
         self.labelPackageId.setObjectName("labelPackageId")
         self.gridLayout_2.addWidget(self.labelPackageId, 0, 0, 1, 1)
-        self.lineEditPackageID = QtWidgets.QLineEdit(self.Package)
-        self.lineEditPackageID.setObjectName("lineEditPackageID")
-        self.gridLayout_2.addWidget(self.lineEditPackageID, 0, 1, 1, 1)
+        self.lineEditPackageId = QtWidgets.QLineEdit(self.Package)
+        self.lineEditPackageId.setObjectName("lineEditPackageId")
+        self.gridLayout_2.addWidget(self.lineEditPackageId, 0, 1, 1, 1)
         self.labelPackageName = QtWidgets.QLabel(self.Package)
         self.labelPackageName.setObjectName("labelPackageName")
         self.gridLayout_2.addWidget(self.labelPackageName, 0, 2, 1, 1)
@@ -277,6 +278,11 @@ class Ui_MainWindow(object):
         self.actionTarget.setObjectName("actionTarget")
         self.actionTarget.setStatusTip('Enter the target')
         self.actionTarget.triggered.connect(self.dirTarget)
+        ## Menu Settings/Load IniFile
+        self.actionLoadIni = QtWidgets.QAction(MainWindow)
+        self.actionLoadIni.setObjectName("actionLoadIni")
+        self.actionLoadIni.setStatusTip('Load the inifile')
+        self.actionLoadIni.triggered.connect(self.loadIni)
         ## Menu Settings/Standard Image
         self.actionStandard_Image = QtWidgets.QAction(MainWindow)
         self.actionStandard_Image.setObjectName("actionStandard_Image")
@@ -310,6 +316,7 @@ class Ui_MainWindow(object):
         self.menuVolume.addAction(self.actionSave2)
         self.menuSettings.addAction(self.actionSource)
         self.menuSettings.addAction(self.actionTarget)
+        self.menuSettings.addAction(self.actionLoadIni)
         self.menuSettings.addSeparator()
         self.menuSettings.addAction(self.actionStandard_Image)
         self.menuSettings.addAction(self.action_DD)
@@ -400,6 +407,7 @@ class Ui_MainWindow(object):
         self.actionSave2.setText(_translate("MainWindow", "Sa&ve"))
         self.actionSource.setText(_translate("MainWindow", "&Source"))
         self.actionTarget.setText(_translate("MainWindow", "&Target"))
+        self.actionLoadIni.setText(_translate("MainWindow", "Load &inifile"))
         self.actionStandard_Image.setText(_translate("MainWindow", "&Internal copy routine"))
         self.action_DD.setText(_translate("MainWindow", "&DD"))
         self.actionDD_rescue.setText(_translate("MainWindow", "DD&rescue "))
@@ -416,7 +424,55 @@ class Ui_MainWindow(object):
     thirdDirPath = ''
     global checkOS
     checkOS = platform.platform()
+    global targetName
+    targetName = ''
+    global iniFileActiv
+    iniFileActiv = False
+    global standardImage
+    standardImage = False
+    global ddV
+    ddV = False
+    global ddrescue
+    ddrescue = False
     
+    if not os.path.exists(str(os.getcwd()) + os.sep + 'FlopPyImg.ini'):
+        configFilePath = str(os.getcwd()) + os.sep + 'FlopPyImg.ini'
+        configFile = open(configFilePath, 'w')
+        config = configparser.ConfigParser()
+        config.add_section('FlopPyImg-config')
+        config.set('FlopPyImg-config','targetPath', 'Enter-the-targetpath')
+        config.set('FlopPyImg-config','sourcePath', 'Enter-the-sourcepath-on-windows-or-on-linux-rawdevicepath')
+        config.set('FlopPyImg-config','linuxMount', 'Enter-on-linux-the-mountpath')
+        config.write(configFile)
+        configFile.close()
+
+    def loadIni(self):
+        if os.path.exists(str(os.getcwd()) + os.sep + 'FlopPyImg.ini'):
+            config = configparser.ConfigParser()
+            configFilePath = str(os.getcwd()) + os.sep + 'FlopPyImg.ini'
+            config.readfp(open(configFilePath, 'r'))
+            global thirdDirPath
+            thirdDirPath = config.get('FlopPyImg-config', 'targetPath')
+            thirdDirPath # unerlaubte syntax??
+            global sourceName
+            sourceName = config.get('FlopPyImg-config', 'sourcePath')
+            global linuxMountPath
+            linuxMountPath = config.get('FlopPyImg-config', 'linuxMount')
+            if checkOS[0:5] == 'Linux':            
+                scourceOut = 'devicepath: ' + sourceName + ' ' + 'mountpath: ' + linuxMountPath 
+            elif checkOS[0:7] == 'Windows':
+                scourceOut = sourceName
+            else:
+                scourceOut = sourceName
+            self.labelSourceOut.setText(scourceOut)
+            self.labelTargetOut.setText(thirdDirPath)
+            global iniFileActiv
+            iniFileActiv = True
+            print(thirdDirPath)
+            print(sourceName)
+            print(iniFileActiv)
+        return thirdDirPath, sourceName, linuxMountPath, iniFileActiv
+            
 
     def dirSource(self):
         global sourceName
@@ -452,17 +508,25 @@ class Ui_MainWindow(object):
         return targetName
 
     def newPackage(self):
+        global standardImage 
         standardImage = False
+        global ddrescue
         ddrescue = False
+        global ddV
         ddV = False
+        global kryoFluxV
         kryoFluxV = False
         self.labelIngestToolOut.setText('Select ingest-tool')
         targetName = ''
         self.labelTargetOut.setText('Input target')
+        global sourceName
         sourceName = ''
+        global thirdDirPath
         thirdDirPath = ''
+        global iniFileActiv
+        iniFileActiv = False
         self.labelSourceOut.setText('Input source')
-        self.lineEditPackageID.clear()
+        self.lineEditPackageId.clear()
         self.lineEditPackageName.clear()
         self.lineEditPackageVersion.clear()
         self.lineEditPackageDate.clear()
@@ -480,7 +544,15 @@ class Ui_MainWindow(object):
         # pruefe ob Packet/Nachlassname ausgefuellt ist
         if self.lineEditPackageName.text() != '':
             # erstelle Verzeichnisse
-            firstDirPath = targetName + os.sep + self.lineEditPackageName.text()
+            global thirdDirPath
+            print(iniFileActiv)
+            print(thirdDirPath)
+            if iniFileActiv:
+                firstDirPath = thirdDirPath + os.sep + self.lineEditPackageName.text()
+                print(thirdDirPath)
+
+            else:
+                firstDirPath = targetName + os.sep + self.lineEditPackageName.text()
             if not os.path.exists(firstDirPath):
                 os.makedirs(firstDirPath)
         
@@ -488,13 +560,12 @@ class Ui_MainWindow(object):
             if not os.path.exists(secondDirPath):
                 os.makedirs(secondDirPath)
             
-            global thirdDirPath
             thirdDirPath = secondDirPath + os.sep + self.comboBoxPackageEnviroment.currentText()
             if not os.path.exists(thirdDirPath):
                 os.makedirs(thirdDirPath)
          
             # erstelle Metadaten - info.xml
-            id = '  <id>' + self.lineEditPackageID.text() + '</id>'
+            id = '  <id>' + self.lineEditPackageId.text() + '</id>'
             name = '  <name>' + self.lineEditPackageName.text() + '</name>'
             version = '  <version>' + self.lineEditPackageVersion.text() + '</version>'
             date = '  <date>' + self.lineEditPackageDate.text() + '</date>'
@@ -525,17 +596,92 @@ class Ui_MainWindow(object):
 
     def loadPackage(self):
         global thirdDirPath
-        thirdDirPath = QtWidgets.QFileDialog.getExistingDirectory(None, 'Load file', os.getenv('HOME'))
-        self.labelTargetOut.setText(thirdDirPath)
+        if iniFileActiv == False:
+            thirdDirPath = QtWidgets.QFileDialog.getExistingDirectory(None, 'Load file', os.getenv('HOME'))
+            self.labelTargetOut.setText(thirdDirPath)
         if thirdDirPath == '':
             self.labelTargetOut.setText('you have not select a target (package load)')
+        infoXmlFile = thirdDirPath + os.sep + 'info.xml'
+        if os.path.exists(thirdDirPath):
+            f = open(infoXmlFile, 'r')
+            xmlFileData = f.read()
+            f.close()
+            dom3 = xml.dom.minidom.parseString(xmlFileData)
+        
+            packageMetaData = ['id', 'name', 'version', 'date', 'class', 'enviroment', 'count', 'reserved', 'description', 'remarks', 'ingestDate', 'archivist']
+            print(packageMetaData)
+            for metaData in packageMetaData:
+                print(metaData)
+                metaDataPosition = dom3.getElementsByTagName(metaData)
+                if metaDataPosition[0].firstChild != None:
+                    metaDataValue = metaDataPosition[0].firstChild.nodeValue
+                    if metaData == 'description':
+                        self.plainTextEditPackageDescription.setPlainText(metaDataValue)
+                    elif metaData == 'remarks':
+                        self.plainTextEditPackageRemarks.setPlainText(metaDataValue)
+                    elif metaData == 'id':
+                        self.lineEditPackageId.setText(metaDataValue)
+                    elif metaData == 'name':
+                        self.lineEditPackageName.setText(metaDataValue)
+                    elif metaData == 'version':
+                        self.lineEditPackageVersion.setText(metaDataValue)
+                    elif metaData == 'date':
+                        self.lineEditPackageDate.setText(metaDataValue)
+                    elif metaData == 'count':
+                        self.lineEditPackageVolumeCount.setText(metaDataValue)
+                    elif metaData == 'reserved':
+                        self.lineEditPackageReserved.setText(metaDataValue)
+                    elif metaData == 'archivist':
+                        self.lineEditPackageArchivist.setText(metaDataValue)
+                    elif metaData == 'ingestDate':
+                        self.dateEditPackageIngestDate.setDate(QtCore.QDate.fromString(metaDataValue)) 
+                    elif metaData == 'class':
+                        if metaDataValue == '0_Original-Disk':
+                            self.comboBoxPackageClass.setCurrentIndex(1)
+                        elif metaDataValue == 'Data':
+                            self.comboBoxPackageClass.setCurrentIndex(2)
+                        elif metaDataValue == 'OS':
+                            self.comboBoxPackageClass.setCurrentIndex(3)
+                        elif metaDataValue == 'Games':
+                            self.comboBoxPackageClass.setCurrentIndex(4)
+                        elif metaDataValue == 'Various':
+                            self.comboBoxPackageClass.setCurrentIndex(5)
+                        else:
+                            self.comboBoxPackageClass.setCurrentIndex(0)
+                    elif metaData == 'enviroment':
+                        if metaDataValue == 'CP-M':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(1)
+                        elif metaDataValue == 'MS-DOS':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(2)
+                        elif metaDataValue == 'OS-2':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(3)
+                        elif metaDataValue == 'Atari ST':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(4)
+                        elif metaDataValue == 'Macintosh':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(5)
+                        elif metaDataValue == 'MS-Windows 3.0':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(6)
+                        elif metaDataValue == 'MS-Windows 32 Bit (9x, NT, 2K, XP)':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(7)
+                        elif metaDataValue == 'MS-Windows 64 Bit (Vista, 7, 8x, 10)':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(8)
+                        elif metaDataValue == 'Various':
+                            self.comboBoxPackageEnviroment.setCurrentIndex(9)
+                        else:
+                            self.comboBoxPackageEnviroment.setCurrentIndex(0)
+                    else:
+                        print('')
+                else:
+                    metaDataValue = 'Leer'
+                print('metadata Wert: ',metaDataValue)
+
         return thirdDirPath
 
     def VolumeAutodetect(self):
         if sourceName != '' or linuxMountPath != '':
             if sourceName != '':
                 volumeSourceSize = shutil.disk_usage(sourceName)
-            if linuxMountPath != '':
+            if checkOS[0:5] == 'Linux':
                 volumeSourceSize = shutil.disk_usage(linuxMountPath)
             volumeSourceTotalSize = volumeSourceSize.total / 1024
             if volumeSourceTotalSize < 180:
@@ -554,16 +700,20 @@ class Ui_MainWindow(object):
             self.labelErrorOut.setText('You have not selected a source')
 
     def newVolume(self):
-        # suche volume ID
         pathXmlFile = thirdDirPath + os.sep + 'info.xml'
         if os.path.exists(pathXmlFile):
             f = open(pathXmlFile, 'r')
             xmlFileData = f.read()
             f.close()
-            dom3 = xml.dom.minidom.parseString(xmlFileData)
-            volumeIdPosition = dom3.getElementsByTagName('count')
-            volumeId = str(int(volumeIdPosition[0].firstChild.nodeValue) + 1)
-            self.lineEditVolumeId.setText(volumeId)
+            dom1 = xml.dom.minidom.parseString(xmlFileData)
+            vol = dom1.getElementsByTagName('volume')
+            # Attribute finden und in liste speichern
+            attributeList = []
+            for element in vol:
+                for elem in element.attributes.values():
+                    attributeList.append(elem.firstChild.data)
+            newAttribute = len(attributeList) + 1
+            self.lineEditVolumeId.setText(str(newAttribute))
         else:
             self.lineEditVolumeId.setText('1')
         self.lineEditVolumeName.clear()
@@ -575,9 +725,16 @@ class Ui_MainWindow(object):
   
     def saveVolume(self):
         print(sourceName)
+        global standardImage
+        print('internal copy routine active: ', standardImage)
+        global ddv
+        print('dd active: ', ddV)
+        global ddrescue
+        print('ddrescue active:', ddrescue)
         if standardImage or ddV or ddrescue:
             self.labelErrorOut.setText('')
             if standardImage:
+                self.labelErrorOut.setText('copy routine work')
                 fileName = funktionen.nameCount('.lst', thirdDirPath)
                 imgFilePath = thirdDirPath + os.sep + funktionen.nameCount('.img', thirdDirPath)
                 # erstelle Image
@@ -590,16 +747,17 @@ class Ui_MainWindow(object):
                         funktionen.contentList(sourceName, fileName, thirdDirPath)  # bekommt die globale variable nicht übergeben
                     # erstelle md5 checksumme
                     funktionen.checkSum(thirdDirPath)
+                self.labelErrorOut.setText('')
 
             if ddV:
                 if checkOS[0:5] == 'Linux':
-               
+                    self.labelErrorOut.setText('copy routine work')               
                     print(ddCommand)
                     fileName = funktionen.nameCount('.lst', thirdDirPath)
                     if checkOS[0:5] == 'Linux':
                         funktionen.contentList(linuxMountPath, fileName, thirdDirPath)
                     else:
-                        funktionen.contentList(sourceName, fileName, thirdDirPath)  # bekommt die globale variable nicht übergeben
+                        funktionen.contentList(sourceName, fileName, thirdDirPath)  
                     imgName = funktionen.nameCount('.img', thirdDirPath)
                     # erstelle Image
                     command = 'dd ' + 'if=' + sourceName + ' of=' + thirdDirPath + os.sep + imgName + ' ' + ddCommand 
@@ -609,7 +767,7 @@ class Ui_MainWindow(object):
 
             if ddrescue:
                 if checkOS[0:5] == 'Linux':
-               
+                    self.labelErrorOut.setText('copy routine work')               
                     print(ddrescueCommand)
                     fileName = funktionen.nameCount('.lst', thirdDirPath)
                     if checkOS[0:5] == 'Linux':
@@ -631,7 +789,7 @@ class Ui_MainWindow(object):
             description = self.plainTextEditVolumeDescription.toPlainText()
             remarks = self.plainTextEditVolumeRemarks.toPlainText()
             funktionen.volumeMetadata(thirdDirPath, name, media, label, description, remarks)
-
+            self.lineEditPackageVolumeCount.setText(id)
         else:
             self.labelErrorOut.setText('Select a ingest-tool')
 
